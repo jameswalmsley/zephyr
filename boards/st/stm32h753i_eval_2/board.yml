@@ -1,0 +1,7 @@
+board:
+  name: stm32h753i_eval_2
+  full_name: STM32H753I Eval 2
+  vendor: st
+  socs:
+    - name: stm32h743xx
+

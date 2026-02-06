@@ -1,0 +1,7 @@
+# STM32H753I EVAL 2 board configuration
+
+# Copyright (c) 2026 James Walmsley <james@fullfat-fs.co.uk>
+# SPDX-License-Identifier: Apache-2.0
+
+config BOARD_STM32H753I_EVAL_2
+	select SOC_STM32H743XX
