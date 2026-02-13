@@ -19,25 +19,35 @@
  * See the sample documentation for information on how to fix this.
  */
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+static const struct gpio_dt_spec led2 = GPIO_DT_SPEC_GET(DT_ALIAS(led1), gpios);
 
 int main(void)
 {
 	int ret;
 	bool led_state = true;
 
-	if (!gpio_is_ready_dt(&led)) {
-		return 0;
-	}
+	// if (!gpio_is_ready_dt(&led)) {
+	// 	return 0;
+	// }
 
 	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
 	if (ret < 0) {
-		return 0;
+		//return 0;
 	}
 
+	int i = 0;
+
 	while (1) {
+		printk("Toggling the leds\n");
 		ret = gpio_pin_toggle_dt(&led);
 		if (ret < 0) {
 			return 0;
+		}
+
+		i++;
+
+		if(i > 2) {
+			gpio_pin_toggle_dt(&led2);
 		}
 
 		led_state = !led_state;

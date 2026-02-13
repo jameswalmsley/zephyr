@@ -23,13 +23,13 @@
 		compatible = "gpio-leds";
 
 		green_led_1: led_1 {
-			gpios = <&gpiok 3 GPIO_ACTIVE_LOW>;
+			gpios = <&gpiof 10 GPIO_ACTIVE_LOW>;
 			label = "User LD1";
 			status = "disabled";
 		};
 
 		orange_led_2: led_2 {
-			gpios = <&gpiok 4 GPIO_ACTIVE_LOW>;
+			gpios = <&gpioa 4 GPIO_ACTIVE_LOW>;
 			label = "User LD2";
 			status = "disabled";
 		};
@@ -56,8 +56,18 @@
 
 };
 
+&clk_lsi {
+
+	status = "okay";
+};
+
 &clk_hse {
+	//hse-bypass;
 	clock-frequency = <DT_FREQ_M(25)>;
+	status = "okay";
+};
+
+&clk_hsi {
 	status = "okay";
 };
 
@@ -69,7 +79,7 @@
 	div-m = <5>;
 	mul-n = <160>;
 	div-p = <2>;
-	div-q = <4>;
+	div-q = <2>;
 	div-r = <2>;
 	clocks = <&clk_hse>;
 	status = "okay";
@@ -89,7 +99,7 @@
 	clocks = <&pll>;
 	clock-frequency = <DT_FREQ_M(400)>;
 	d1cpre = <1>;
-	hpre = <2>;
+	hpre = <4>;
 	d1ppre = <2>;
 	d2ppre1 = <2>;
 	d2ppre2 = <2>;
@@ -98,6 +108,14 @@
 
 &pwr {
 	power-supply = "ldo";
+};
+
+&gpioa {
+	status = "okay";
+};
+
+&gpiof {
+	status = "okay";
 };
 
 &usart1 {
@@ -116,21 +134,22 @@
 		boot_partition: partition@0 {
 			label = "mcuboot";
 			reg = <0x00000000 DT_SIZE_K(128)>;
+			read-only;
 		};
 
 		slot0_partition: partition@20000 {
 			label = "image-0";
-			reg = <0x00020000 DT_SIZE_K(896)>;
+			reg = <0x00020000 DT_SIZE_K(256)>;
 		};
 
-		slot1_partition: partition@100000 {
+		slot1_partition: partition@60000 {
 			label = "image-1";
-			reg = <0x00100000 DT_SIZE_K(896)>;
+			reg = <0x00060000 DT_SIZE_K(384)>;
 		};
 
-		storage_partition: partition@1e0000 {
+		storage_partition: partition@c0000 {
 			label = "storage";
-			reg = <0x001e0000 DT_SIZE_K(128)>;
+			reg = <0x000c0000 DT_SIZE_K(256)>;
 		};
 	};
 };
