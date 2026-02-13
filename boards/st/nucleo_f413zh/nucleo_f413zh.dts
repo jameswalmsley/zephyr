@@ -56,6 +56,7 @@
 		led1 = &blue_led_1;
 		led2 = &red_led_1;
 		sw0 = &user_button;
+		otp0 = &otp;
 	};
 };
 
