@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+&otp {
+	status = "okay";
+
+	nvmem-layout {
+		otp_sample: otp-sample@1f0 {
+			reg = <0x1f0 0x10>;
+			#nvmem-cell-cells = <0>;
+		};
+	};
+};
