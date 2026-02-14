@@ -49,7 +49,84 @@ static const uint8_t otp_pattern[OTP_TEST_LEN] = {
 	0x2D, 0x46, 0x34, 0x00, 0xAA, 0x55, 0xC3, 0x3C,
 };
 
-static const struct device *otp_dev;
+static const struct device *otp_dev = DEVICE_DT_GET(OTP_NODE);
+static const struct device *otp_default_dev = DEVICE_DT_GET(OTP_NODE);
+
+struct otp_dev_info {
+	const struct device *dev;
+	size_t size;
+};
+
+#define OTP_DEV_ENTRY(node_id) { DEVICE_DT_GET(node_id), DT_REG_SIZE(node_id) },
+
+static const struct otp_dev_info otp_devs[] = {
+	/* zephyr-keep-sorted-start */
+	DT_FOREACH_STATUS_OKAY(nxp_ocotp, OTP_DEV_ENTRY)
+	DT_FOREACH_STATUS_OKAY(sifli_sf32lb_efuse, OTP_DEV_ENTRY)
+	DT_FOREACH_STATUS_OKAY(st_stm32_bsec, OTP_DEV_ENTRY)
+	DT_FOREACH_STATUS_OKAY(st_stm32_otp, OTP_DEV_ENTRY)
+	DT_FOREACH_STATUS_OKAY(zephyr_otp_emul, OTP_DEV_ENTRY)
+	/* zephyr-keep-sorted-stop */
+};
+
+static bool otp_get_size(const struct device *dev, size_t *size)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(otp_devs); i++) {
+		if (otp_devs[i].dev == dev) {
+			*size = otp_devs[i].size;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static int cmd_otp_device(const struct shell *sh, size_t argc, char **argv)
+{
+	if (argc < 2) {
+		if (otp_dev == NULL || !device_is_ready(otp_dev)) {
+			shell_error(sh, "OTP device not ready");
+			return -ENODEV;
+		}
+
+		shell_print(sh, "Current OTP device: %s", otp_dev->name);
+#ifdef CONFIG_DEVICE_DT_METADATA
+		const struct device_dt_nodelabels *nl = device_get_dt_nodelabels(otp_dev);
+
+		if (nl != NULL && nl->num_nodelabels > 0) {
+			shell_print(sh, "Node labels:");
+			for (size_t i = 0; i < nl->num_nodelabels; i++) {
+				shell_print(sh, "  %s", nl->nodelabels[i]);
+			}
+		}
+#endif
+		return 0;
+	}
+
+	const struct device *dev = shell_device_get_binding(argv[1]);
+
+	if (dev == NULL) {
+		shell_error(sh, "Unknown device or nodelabel: %s", argv[1]);
+		return -ENODEV;
+	}
+
+	if (!device_is_ready(dev)) {
+		shell_error(sh, "Device %s is not ready", dev->name);
+		return -ENODEV;
+	}
+	if (!DEVICE_API_IS(otp, dev)) {
+		shell_error(sh, "Device %s is not an OTP device", dev->name);
+		return -EINVAL;
+	}
+
+	otp_dev = dev;
+	shell_print(sh, "Selected OTP device: %s", otp_dev->name);
+	if (otp_dev != otp_default_dev) {
+		shell_warn(sh, "Non-default device selected");
+	}
+
+	return 0;
+}
 
 static bool otp_is_blank(const uint8_t *buf, size_t len)
 {
@@ -68,7 +145,9 @@ static int cmd_otp_dump(const struct shell *sh, size_t argc, char **argv)
 	ARG_UNUSED(argv);
 
 	const struct device *otp = otp_dev;
-	size_t otp_size = DT_REG_SIZE(OTP_NODE);
+	size_t otp_size = 0;
+	int parse_ret = 0;
+	unsigned long dump_len = 0;
 	uint8_t buf[16];
 	size_t offset = 0;
 	int ret;
@@ -76,6 +155,20 @@ static int cmd_otp_dump(const struct shell *sh, size_t argc, char **argv)
 	if (otp == NULL || !device_is_ready(otp)) {
 		shell_error(sh, "OTP device not ready");
 		return -ENODEV;
+	}
+
+	if (!otp_get_size(otp, &otp_size)) {
+		if (argc >= 2) {
+			dump_len = shell_strtoul(argv[1], 0, &parse_ret);
+			if (parse_ret != 0 || dump_len == 0) {
+				shell_error(sh, "Invalid length");
+				return -EINVAL;
+			}
+			otp_size = (size_t)dump_len;
+		} else {
+			shell_error(sh, "Size unknown for selected device; use: otp dump <len>");
+			return -EINVAL;
+		}
 	}
 
 	while (offset < otp_size) {
@@ -185,6 +278,8 @@ static int cmd_otp_write(const struct shell *sh, size_t argc, char **argv)
 	const struct device *otp = otp_dev;
 	unsigned long offset;
 	int ret;
+	size_t otp_size = 0;
+	bool check_size = otp_get_size(otp, &otp_size);
 
 	if (otp == NULL || !device_is_ready(otp)) {
 		shell_error(sh, "OTP device not ready");
@@ -197,7 +292,7 @@ static int cmd_otp_write(const struct shell *sh, size_t argc, char **argv)
 	}
 
 	offset = strtoul(argv[1], NULL, 0);
-	if (offset >= DT_REG_SIZE(OTP_NODE)) {
+	if (check_size && offset >= otp_size) {
 		shell_error(sh, "Offset out of range");
 		return -EINVAL;
 	}
@@ -206,12 +301,12 @@ static int cmd_otp_write(const struct shell *sh, size_t argc, char **argv)
 		uint8_t value = (uint8_t)strtoul(argv[i], NULL, 0);
 		size_t write_offset = offset + (i - 2);
 
-		if (write_offset >= DT_REG_SIZE(OTP_NODE)) {
+		if (check_size && write_offset >= otp_size) {
 			shell_error(sh, "Write exceeds OTP size");
 			return -EINVAL;
 		}
 
-		if (OTP_LOCK_AVAILABLE) {
+		if (check_size && otp_dev == otp_default_dev && OTP_LOCK_AVAILABLE) {
 			if ((write_offset >= OTP_LOCK_OFFSET) &&
 			    (write_offset < (OTP_LOCK_OFFSET + OTP_LOCK_LEN))) {
 				shell_error(sh, "Refusing to write OTP lock bytes; use 'otp lock'");
@@ -249,6 +344,11 @@ static int cmd_otp_lock(const struct shell *sh, size_t argc, char **argv)
 		return -ENODEV;
 	}
 
+	if (otp_dev != otp_default_dev) {
+		shell_error(sh, "OTP lock bytes only supported on the default device");
+		return -ENOTSUP;
+	}
+
 	if (argc < 2) {
 		shell_error(sh, "Usage: otp lock <index 0-15> [value]");
 		return -EINVAL;
@@ -276,7 +376,9 @@ static int cmd_otp_lock(const struct shell *sh, size_t argc, char **argv)
 }
 
 SHELL_STATIC_SUBCMD_SET_CREATE(
-	otp_cmds, SHELL_CMD(dump, NULL, "Dump OTP contents in hex", cmd_otp_dump),
+	otp_cmds,
+	SHELL_CMD(device, NULL, "Get or set OTP device", cmd_otp_device),
+	SHELL_CMD(dump, NULL, "Dump OTP contents in hex [len]", cmd_otp_dump),
 	SHELL_CMD(program, NULL, "Write test pattern to otp_sample", cmd_otp_program),
 	SHELL_CMD(verify, NULL, "Verify otp_sample matches test pattern", cmd_otp_verify),
 	SHELL_CMD(write, NULL, "Write raw byte(s): otp write <offset> <byte> [byte ...]",
@@ -296,6 +398,7 @@ int main(void)
 	}
 
 	otp_dev = otp;
+	otp_default_dev = otp;
 
 	printk("Using OTP device: %s (size=%u)\n", otp->name, (unsigned int)DT_REG_SIZE(OTP_NODE));
 	printk("Using OTP test cell: offset=0x%x size=%u\n", (unsigned int)OTP_TEST_OFFSET,

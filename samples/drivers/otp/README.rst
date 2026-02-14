@@ -48,6 +48,12 @@ Once the sample is running, you can dump the entire OTP contents:
 
    otp dump
 
+To select a specific OTP device (by name or node label):
+
+.. code-block:: console
+
+   otp device <name-or-nodelabel>
+
 To program the test pattern into the ``otp_sample`` cell:
 
 .. code-block:: console
