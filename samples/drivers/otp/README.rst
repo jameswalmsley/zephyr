@@ -58,19 +58,19 @@ To program the test pattern into the ``otp_sample`` cell:
 
 .. code-block:: console
 
-   otp program
+   otp_sample program
 
 To verify the test pattern matches ``otp_sample``:
 
 .. code-block:: console
 
-   otp verify
+   otp_sample verify
 
 To write raw byte values at an arbitrary OTP offset:
 
 .. code-block:: console
 
-   otp write <offset> <byte> [byte ...]
+   otp program <offset> <byte> [byte ...]
 
 To program one lock byte (permanently locks a 32-byte OTP block):
 

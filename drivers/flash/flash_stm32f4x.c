@@ -18,7 +18,7 @@
 
 #include "flash_stm32.h"
 
-LOG_MODULE_REGISTER(flash_stm32f4x, CONFIG_FLASH_LOG_LEVEL);
+LOG_MODULE_REGISTER(flash_stm32f4x, LOG_LEVEL_DBG);
 
 #if FLASH_STM32_WRITE_BLOCK_SIZE == 8
 typedef uint64_t flash_prg_t;
